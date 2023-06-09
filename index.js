@@ -10,7 +10,7 @@ app.use(express.json());
 
 
 
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.ydthzao.mongodb.net/?retryWrites=true&w=majority`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -28,8 +28,26 @@ async function run() {
     await client.connect();
 
 
+    const usersCollection = client.db("drawingDb").collection("users");
     const menuCollection = client.db("drawingDb").collection("menu");
     const reviewCollection = client.db("drawingDb").collection("reviews");
+    const cartCollection = client.db("drawingDb").collection("carts");
+
+
+
+    // users related apis
+    app.post("/users", async (req, res) => {
+      const user = req.body;
+      // const query = { email: user.email };
+      // const existingUser = await usersCollection.findOne(query);
+
+      // if (existingUser) {
+      //   return res.send({ message: "user already exists" });
+      // }
+      const result = await usersCollection.insertOne(user);
+      res.send(result);
+    });
+
 
 
      // menu related apis
@@ -45,6 +63,45 @@ async function run() {
       const result = await reviewCollection.find().toArray();
       res.send(result);
     });
+
+
+    
+    // cart collection apis
+    app.get("/carts", async (req, res) => {
+      const email = req.query.email;
+
+      if (!email) {
+        res.send([]);
+      }
+
+    //   const decodedEmail = req.decoded.email;
+    //   if(email !== decodedEmail){
+    //     return res.status(403).send({ error: true, message: 'porviden access' })
+    //   }
+
+      const query = { email: email };
+      const result = await cartCollection.find(query).toArray();
+      res.send(result);
+    });
+
+
+
+    app.post("/carts", async (req, res) => {
+      const item = req.body;
+      console.log(item);
+      const result = await cartCollection.insertOne(item);
+      res.send(result);
+    });
+
+
+
+    app.delete("/carts/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await cartCollection.deleteOne(query);
+      res.send(result);
+    });
+
 
 
     // Send a ping to confirm a successful connection
