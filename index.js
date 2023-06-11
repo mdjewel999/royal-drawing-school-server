@@ -3,6 +3,7 @@ const app = express();
 const cors = require("cors");
 var jwt = require('jsonwebtoken');
 require('dotenv').config()
+const stripe = require('stripe')(process.env.PAYMENT_SECRET_KEY)
 const port = process.env.PORT || 5000;
 
 // middleware
@@ -52,6 +53,7 @@ async function run() {
     const menuCollection = client.db("drawingDb").collection("menu");
     const reviewCollection = client.db("drawingDb").collection("reviews");
     const cartCollection = client.db("drawingDb").collection("carts");
+    const paymentCollection = client.db("bistroDb").collection("payments");
 
     app.post('/jwt', (req, res) => {
       const user = req.body;
@@ -146,13 +148,18 @@ async function run() {
       res.send(result);
     })
 
-    app.put('/menu/:id', async(req, res) => {
-      const id = req.params.id; 
-      const query= {_id: new ObjectId(id)}
-    const result = await menuCollection.updateOne(query)
-      res.send(result);
+    app.put('/menu/:id', async (req, res) => {
+      try {
+        const id = req.params.id;
+        const query = { _id: new ObjectId(id) };
+        const result = await menuCollection.updateOne(query);
+        res.send(result);
+      } catch (error) {
+        console.error(error);
+        res.status(500).send('Internal Server Error');
+      }
     });
-
+    
 
      // review related apis
      app.get("/reviews", async (req, res) => {
@@ -173,7 +180,7 @@ async function run() {
 
       // const decodedEmail = req.decoded.email;
       // if(email !== decodedEmail){
-      //   return res.status(403).send({ error: true, message: 'porviden access' })
+      //   return res.status(403).send({ error: true, message: 'forviden access' })
       // }
 
       const query = { email: email };
@@ -199,7 +206,20 @@ async function run() {
       res.send(result);
     });
 
+// create payment intent
+app.post('/create-payment-intent',verifyJWT, async (req, res) => {
+  const { price } = req.body;
+  const amount = price * 100;
+  const paymentIntent = await stripe.paymentIntents.create({
+    amount: amount,
+    currency: 'usd',
+    payment_method_types: ['card']
+  });
 
+  res.send({
+    clientSecret: paymentIntent.client_secret
+  })
+})
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
